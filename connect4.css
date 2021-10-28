@@ -1,0 +1,13 @@
+.cell{
+    height: 9vh;
+    width:  13vh;
+    border-style: solid;
+    border-width: 2px;
+    text-align: center;
+}
+
+#root{
+    margin: auto;
+    width: 40%;
+    height: 70vh;
+}
