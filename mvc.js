@@ -1,19 +1,19 @@
 class Model {
-    //Defines data structure, function logic
     constructor() {
         this.currPlayer = "blue"
-        this.tokens = []; //col: col, row: height, color: this.currPlayer
-        if (localStorage.getItem("board")) { //Board [i/row][j/col]
-            this.board = JSON.parse(localStorage.getItem("board"))
-            this.tokens = JSON.parse(localStorage.getItem("tokens"))
-            this.currPlayer = JSON.parse(localStorage.getItem("player"))
-        }
-        else {
-            this.board = this.#constructEmptyBoard()
-        }
-        console.log(this.board)
+        this.isPlayAble = true;
+        this.tokens = [];
+        this.board = this.#constructEmptyBoard()
     }
 
+    reset() { //Resets all game elements related to the model class
+        this.isPlayAble = true;
+        this.currPlayer = "blue";
+        this.tokens = [];
+        this.board = this.#constructEmptyBoard();
+    }
+
+    //Construcats an empry board
     #constructEmptyBoard() {
         const board = []
         for (let i = 0; i <= 6; i++) {
@@ -22,36 +22,28 @@ class Model {
                 board[i].push(`i: ${i} j: ${j}`)
             }
         }
-        console.log("empty")
-        localStorage.setItem("board", JSON.stringify(board))
-        localStorage.setItem("tokens", JSON.stringify([]));
-        localStorage.setItem("player", JSON.stringify("blue"));
         return board;
     }
 
+    //Handles adding a new token to the game
     addToken(col) {
-        if (this.isPlaceAble(col)) {
-            let height = 6;
-            for (let i = 6; i >= 0; i--) {
-                if (this.board[i][col] !== "red" && this.board[i][col] !== "blue") {
-
-                    height = i;
-                    break;
+        if (this.isPlayAble) {
+            if (this.isPlaceAble(col)) {
+                let height = 6;
+                for (let i = 6; i >= 0; i--) {
+                    if (this.board[i][col] !== "red" && this.board[i][col] !== "blue") {
+                        height = i;
+                        break;
+                    }
                 }
+                this.tokens.push({ col: col, row: height, color: this.currPlayer })
+                this.board[height][col] = this.currPlayer;
+                this.switchTurn();
             }
-            console.log(`Placeing a ${this.currPlayer} token in col ${col} lvl ${height}`)
-            this.tokens.push({ col: col, row: height, color: this.currPlayer })
-            this.board[height][col] = this.currPlayer;
-            localStorage.setItem("board", JSON.stringify(this.board))
-            localStorage.setItem("tokens", JSON.stringify(this.tokens))
-            this.checkWinner();
-            this.switchTurn();
-        }
-        else {
-            console.log(`col ${col} is full`)
         }
     }
 
+    //Checks if the given column is full
     isPlaceAble(col) {
         if (this.board[0][col] !== "red" && this.board[0][col] !== "blue") {
             return true;
@@ -59,36 +51,45 @@ class Model {
         return false;
     }
 
+    //Switches the player
     switchTurn() {
         if (this.currPlayer === "blue") {
-            localStorage.setItem("player", JSON.stringify("red"));
             this.currPlayer = "red";
         }
         else {
-            localStorage.setItem("player", JSON.stringify("blue"));
             this.currPlayer = "blue";
         }
     }
 
-    checkWinner(streak) {
-        const lastToken = this.tokens[this.tokens.length - 1]
-        //check horizontal
-        if (this.#checkHorizontal(1, lastToken, [])) {
-            console.log("victory")
-        }
-        //check vertical
-        if (this.#checkVertical(1, lastToken, [])) {
-            console.log("victory")
-        }
-        //check sideways
-        if (this.#checkSideWaysRising(1, lastToken, [])) {
-            console.log("victory")
-        }
-        if (this.#checkSideWaysDesc(1, lastToken, [])) {
-            console.log("victory")
+    //Checks if any player won
+    checkWinner() {
+        if (this.tokens.length >= 6) {
+            const lastToken = this.tokens[this.tokens.length - 1]
+            //check horizontal
+            if (this.#checkHorizontal(1, lastToken, [])) {
+                return this.victory();
+            }
+            //check vertical
+            if (this.#checkVertical(1, lastToken, [])) {
+                return this.victory();
+
+            }
+            //check sideways
+            if (this.#checkSideWaysRising(1, lastToken, [])) {
+                return this.victory();
+            }
+            if (this.#checkSideWaysDesc(1, lastToken, [])) {
+                return this.victory();
+            }
         }
     }
 
+    victory() {
+        this.isPlayAble = false;
+        return this.tokens[this.tokens.length - 1].color
+    }
+
+    //Checks if a token exists
     doesTokenExist(col, row, color) {
         for (let i = 0; i < this.tokens.length; i++) {
             if (this.tokens[i].col === col && this.tokens[i].row === row && this.tokens[i].color === color) {
@@ -183,57 +184,126 @@ class Model {
     get tokens() {
         return this._tokens;
     }
-
 }
 
 class View {
-    //Handles UI changes, DOM manipulation
     constructor() {
         this.root = document.getElementById("root");
         this.board = document.createElement("table");
-        for (let i = 0; i <= 6; i++) {
+        this.msgDiv = document.createElement("div")
+        this.tokens = [];
+
+        this.board.className="table"
+
+        this.#_generateBoard();
+    }
+
+    bindVictory(color) {
+        this.msgDiv.textContent = `${color} WINS! Reset to play again.`
+        this.msgDiv.className="winnerDiv"
+        this.root.append(this.msgDiv);
+    }
+
+    //Generates the board
+    #_generateBoard() {
+        for (let i = 0; i < 7; i++) {
             const tr = document.createElement("tr");
-            for (let j = 0; j <= 6; j++) {
+            for (let j = 0; j < 7; j++) {
                 const td = document.createElement("td");
-                td.textContent = `i: ${i} j: ${j}`
                 td.classList.add("cell")
-                td.addEventListener("click", () => { this.addToken(j) })
                 tr.append(td)
             }
+
             this.board.append(tr)
         }
         this.root.append(this.board)
+        const resetBtn = document.createElement("button");
+        resetBtn.textContent = "Reset"
+        resetBtn.id = "resetBtn"
+        this.root.append(resetBtn)
+    }
+    
+    //Resets all elements related to the view class
+    reset() {
+        this.tokens = [];
+        for (let i = 0; i < this.board.rows.length; i++) {
+            for (let j = 0; j < this.board.rows[i].cells.length; j++) {
+                this.board.rows[i].cells[j].style.backgroundColor = "white";
+            }
+        }
+        this.root.removeChild(this.msgDiv)
     }
 
-    addToken(col) {
-        console.log(`Adding token to ${col}`)
-        return col;
-    }
-
-    render(tokens) {
+    //Puts all token in the board
+    updateBoard(tokens) {
         for (let i = 0; i < tokens.length; i++) {
-            const cell = this.board.children[tokens[i].col].children[tokens[i].row];
-            cell.style['background-color'] = tokens[i].color
+            this.placeInBoard(tokens[i]);
+        }
+    }
+
+    //Recieves a token and places it the the correct spot
+    placeInBoard(token) {
+        for (let i = 0; i < this.board.rows.length; i++) {
+            if (i === token.row) {
+                for (let j = 0; j < this.board.rows[i].cells.length; j++) {
+                    if (j === token.col) {
+                        this.board.rows[i].cells[j].style.backgroundColor = token.color;
+                    }
+                }
+            }
+        }
+    }
+
+    bindResetButton(resetCb) {
+        const btn = document.getElementById("resetBtn");
+        btn.addEventListener("click", () => {
+            resetCb();
+        })
+        resetCb();
+    }
+
+    bindAddToken(modelAddToken) {
+        for (let i = 0; i < this.board.rows.length; i++) {
+            for (let j = 0; j < this.board.rows[i].cells.length; j++) {
+                this.board.rows[i].cells[j].addEventListener("click", (event) => {
+                    modelAddToken(j)
+                })
+            }
         }
     }
 }
 
 class Controller {
-    //Connects the view and model
     #model;
     #view;
     constructor(model, view) {
         this.#model = model;
         this.#view = view;
+
+        this.#view.bindAddToken(this.#handleAddToken)
+        this.#view.bindResetButton(this.#handleReset)
     }
 
-    handleAddToken(col){
-        this.#model.addToken(col);
+    #onVictory(color) {
+        if (color) {
+            this.#view.bindVictory(color);
+        }
+    }
+
+    //Fires after every new token added. Updates the model, view, and checks for a winner
+    #handleAddToken = (col) => {
+        this.#model.addToken(col)
+        this.#onVictory(this.#model.checkWinner())
+        this.#view.updateBoard(this.#model.tokens)
+
+    }
+
+    //Fires when the reset button is clicked
+    #handleReset = () => {
+        this.#model.reset();
+        this.#view.reset();
     }
 }
 
-const model = new Model();
-const view = new View();
-
-const control = new Controller(model, view)
+const control = new Controller(new Model(), new View())
 
